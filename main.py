@@ -10,13 +10,13 @@ app = Flask(__name__)
 velas_boom = []
 velas_crash = []
 
-async def conectar_deriv(simbolo, almacen):
+async def conectar(simbolo, almacen):
     uri = "wss://ws.derivws.com/websockets/v3?app_id=1089"
     while True:
         try:
-            print(f"Intentando conectar a Deriv para {simbolo}...")
+            print("Conectando a " + simbolo)
             async with websockets.connect(uri) as ws:
-                print(f"Conectado a Deriv para {simbolo}")
+                print("Conectado a " + simbolo)
                 peticion = {
                     "ticks_history": simbolo,
                     "end": "latest",
@@ -32,7 +32,7 @@ async def conectar_deriv(simbolo, almacen):
                     if "candles" in datos:
                         almacen.clear()
                         almacen.extend(datos["candles"])
-                        print(f"{simbolo}: {len(almacen)} velas cargadas")
+                        print(simbolo + ": " + str(len(almacen)) + " velas")
                     elif "ohlc" in datos:
                         vela = {
                             "open": float(datos["ohlc"]["open"]),
@@ -46,41 +46,21 @@ async def conectar_deriv(simbolo, almacen):
                         else:
                             almacen.append(vela)
         except Exception as e:
-            print(f"Error con {simbolo}: {e}. Reconectando en 5s...")
+            print("Error: " + str(e))
             await asyncio.sleep(5)
 
-def iniciar_websockets():
+def iniciar():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(asyncio.gather(
-        conectar_deriv("BOOM1000", velas_boom),
-        conectar_deriv("CRASH1000", velas_crash)
+        conectar("BOOM1000", velas_boom),
+        conectar("CRASH1000", velas_crash)
     ))
 
-hilo = threading.Thread(target=iniciar_websockets, daemon=True)
-hilo.start()
+t = threading.Thread(target=iniciar, daemon=True)
+t.start()
 
-@app.route('/boom1000', methods=['GET'])
-def get_boom():
-    if not velas_boom:
-        return jsonify({"error": "Sin datos aun, espera 15 segundos"}), 503
-    return jsonify({
-        "simbolo": "BOOM1000",
-        "total_velas": len(velas_boom),
-        "candles": velas_boom[-20:]
-    })
-
-@app.route('/crash1000', methods=['GET'])
-def get_crash():
-    if not velas_crash:
-        return jsonify({"error": "Sin datos aun, espera 15 segundos"}), 503
-    return jsonify({
-        "simbolo": "CRASH1000",
-        "total_velas": len(velas_crash),
-        "candles": velas_crash[-20:]
-    })
-
-@app.route('/health', methods=['GET'])
+@app.route("/health")
 def health():
     return jsonify({
         "status": "ok",
@@ -88,6 +68,26 @@ def health():
         "crash_velas": len(velas_crash)
     })
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+@app.route("/boom1000")
+def boom():
+    if not velas_boom:
+        return jsonify({"error": "Sin datos"}), 503
+    return jsonify({
+        "simbolo": "BOOM1000",
+        "total_velas": len(velas_boom),
+        "candles": velas_boom[-20:]
+    })
+
+@app.route("/crash1000")
+def crash():
+    if not velas_crash:
+        return jsonify({"error": "Sin datos"}), 503
+    return jsonify({
+        "simbolo": "CRASH1000",
+        "total_velas": len(velas_crash),
+        "candles": velas_crash[-20:]
+    })
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

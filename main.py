@@ -3,7 +3,7 @@ import json
 import websockets
 from flask import Flask, jsonify
 import threading
-import time
+import os
 
 app = Flask(__name__)
 
@@ -16,7 +16,7 @@ async def conectar_deriv(simbolo, almacen):
         try:
             print(f"Intentando conectar a Deriv para {simbolo}...")
             async with websockets.connect(uri) as ws:
-                print(f"✅ Conectado a Deriv para {simbolo}")
+                print(f"Conectado a Deriv para {simbolo}")
                 peticion = {
                     "ticks_history": simbolo,
                     "end": "latest",
@@ -32,7 +32,7 @@ async def conectar_deriv(simbolo, almacen):
                     if "candles" in datos:
                         almacen.clear()
                         almacen.extend(datos["candles"])
-                        print(f"✅ {simbolo}: {len(almacen)} velas cargadas")
+                        print(f"{simbolo}: {len(almacen)} velas cargadas")
                     elif "ohlc" in datos:
                         vela = {
                             "open": float(datos["ohlc"]["open"]),
@@ -46,7 +46,7 @@ async def conectar_deriv(simbolo, almacen):
                         else:
                             almacen.append(vela)
         except Exception as e:
-            print(f"❌ Error con {simbolo}: {e}. Reconectando en 5s...")
+            print(f"Error con {simbolo}: {e}. Reconectando en 5s...")
             await asyncio.sleep(5)
 
 def iniciar_websockets():
@@ -57,7 +57,6 @@ def iniciar_websockets():
         conectar_deriv("CRASH1000", velas_crash)
     ))
 
-# Iniciar WebSocket al cargar el módulo (funciona con gunicorn)
 hilo = threading.Thread(target=iniciar_websockets, daemon=True)
 hilo.start()
 
@@ -88,3 +87,14 @@ def health():
         "boom_velas": len(velas_boom),
         "crash_velas": len(velas_crash)
     })
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+```
+
+---
+
+Y el `Procfile` cámbialo a:
+```
+web: python main.py

@@ -14,7 +14,7 @@ async def pedir_velas(simbolo):
                 "ticks_history": simbolo,
                 "end": "latest",
                 "start": 1,
-                "count": 21,
+                "count": 101,
                 "style": "candles",
                 "granularity": 60
             }
